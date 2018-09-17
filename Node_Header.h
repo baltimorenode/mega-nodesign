@@ -174,45 +174,32 @@ void Send_Picture_Guard() {
   Serial.write('d');
 }
 
-void Set_Pixel (int row, int col, byte high_bright, unsigned int color) { //use this to set values in "frame_buffer"
+Set_Pixel (int row, int col, byte high_bright, unsigned int color) { //use this to set values in "frame_buffer"
   //please note this needs work, use high_bight, high_bright should come in as 0xX0, validate <=CC
-  bool x; //used inside the for loop
-  int start = (col - 1) * 26 + 25; //this goes to correct column position then skips to the LSB of the colore value
+  int start = (24 - col) * 26 + 25; //this goes to correct column position then skips to the LSB of the colore value
   int line = row - 1; //push this so row 1 is accutally the zero bit of the Mask
-  while (line >= 8) { line -= 8; } //push so line is correct for PORT
-  byte over = 0x01 << line; //overwrite mask
+  while (line >= 8) { line -= 8; } //push so line is correct for "PORT"
+  byte over = 0x01 << line; //set overwrite mask to desired bit
+  byte *mask_ptr; //used inside the for loop
+  unsigned int color_mask = 0x0001U;
 
+  //set pointer to desired array to itterate through
+  if (col >= 25) { //right
+    if (row >= 17) { mask_ptr = Mask_Right_L; }
+    else if (row >= 9) { mask_ptr = Mask_Right_K; }
+    else { mask_ptr = Mask_Right_F; }
+  }
+  else { //left
+    if (row >= 17) { mask_ptr = Mask_Left_C; }
+    else if (row >= 9) { mask_ptr = Mask_Left_B; }
+    else { mask_ptr = Mask_Left_A; }
+  }
+  
   //remember that puting a 1 in the mask will write a 0 to the light
   for (int b = 11; b >= 0; b--) { //only trying to change color value right now
-    x = color & (0x0001U << b); //is current bit 1 or 0?
-    if (col >= 25) { //right  
-      if (row >= 17 ) { //L
-        if (x) { Mask_Right_L[start - b] &= (byte)~over; }
-        else { Mask_Right_L[start - b] |= (byte)over; }
-      }
-      else if (row >= 9) { //K
-        if (x) { Mask_Right_K[start - b] &= (byte)~over; }
-        else { Mask_Right_K[start - b] |= (byte)over; }
-      }
-      else { //F
-        if (x) { Mask_Right_F[start - b] &= (byte)~over; } //AND with a 0 in the desired bit
-        else { Mask_Right_F[start - b] |= (byte)over; } //OR with a 1 in the desired bit
-      }
-    }
-    else { //left
-      if (row >= 17 ) { //C
-        if (x) { Mask_Left_C[start - b] &= (byte)~over; }
-        else { Mask_Left_C[start - b] |= (byte)over; }
-      }
-      else if (row >= 9) { //B
-        if (x) { Mask_Left_B[start - b] &= (byte)~over; }
-        else { Mask_Left_B[start - b] |= (byte)over; }
-      }
-      else { //A
-        if (x) { Mask_Left_A[start - b] &= (byte)~over; } //will set selected bit to 0
-        else { Mask_Left_A[start - b] |= (byte)over; } //will set selected bit to 1
-      }
-    }
+    if (color & color_mask) { mask_ptr[start - b] &= (byte)~over; } //AND with a 0 in the desired bit, will set selected bit to 0
+    else { mask_ptr[start - b] |= (byte)over; } //OR with a 1 in the desired bit, will set selected bit to 1
+    color_mask << 1;
   }
 }
 
