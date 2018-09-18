@@ -174,7 +174,7 @@ void Send_Picture_Guard() {
   Serial.write('d');
 }
 
-Set_Pixel (int row, int col, byte high_bright, unsigned int color) { //use this to set values in "frame_buffer"
+void Set_Pixel (int row, int col, byte high_bright, unsigned int color) { //use this to set values in "frame_buffer"
   //please note this needs work, use high_bight, high_bright should come in as 0xX0, validate <=CC
   int start = (24 - col) * 26 + 25; //this goes to correct column position then skips to the LSB of the colore value
   int line = row - 1; //push this so row 1 is accutally the zero bit of the Mask
