@@ -73,7 +73,7 @@ void Mega_Nodesign::Enummerate() { //set light IDs from 1 to 24
     Kill_Ten(); //wait
     PORTA = 0x00; PORTB = 0x00; PORTC = 0x00; PORTF = 0x00; PORTK = 0x00; PORTL = 0x00; //set all ports LOW    
     for (byte i = 0; i <= 25; i++) {
-	  Kill_Ten(); //wait 
+	    Kill_Ten(); //wait 
       PORTA |= Mask_Left_A[pos]; PORTB |= Mask_Left_A[pos]; PORTC |= Mask_Left_A[pos]; //OR with mask
       PORTF |= Mask_Left_A[pos]; PORTK |= Mask_Left_A[pos]; PORTL |= Mask_Left_A[pos]; //this sets ZEROs
       Kill_Ten(); //wait
@@ -81,7 +81,7 @@ void Mega_Nodesign::Enummerate() { //set light IDs from 1 to 24
       Kill_Ten(); //wait
       PORTA = 0x00; PORTB = 0x00; PORTC = 0x00; PORTF = 0x00; PORTK = 0x00; PORTL = 0x00; //set all ports LOW
       pos++; //next bit
-	}
+	  }
     Kill_Ten(); Kill_Ten(); Kill_Ten(); //fill out 30uSec end of Frame
     Kill_Ten(); Kill_Ten(); Kill_Ten(); //fill out 30uSec end of Frame
   }
@@ -93,10 +93,8 @@ void Mega_Nodesign::Send_Picture() { //Output to ports to light strings
 
   if (use_Guard) { Serial.write('s'); }
   
-  uint8_t oldSREG = SREG; //Save interupt status
-  cli(); //Disable interupts, this prevents micros() and millis() from working :(
-
-  //PORTA = 0x00; PORTB = 0x00; PORTC = 0x00; PORTF = 0x00; PORTK = 0x00; PORTL = 0x00; //set all ports LOW
+  //uint8_t oldSREG = SREG; //Save interupt status
+  //cli(); //Disable interupts, this prevents micros() and millis() from working :(
   
   int out_pos = 0; //mask array index
   for (byte col = 0; col <= 23; col++) { //24 lights per row, arbitrary variable   
@@ -115,45 +113,82 @@ void Mega_Nodesign::Send_Picture() { //Output to ports to light strings
       PORTA = 0x00; PORTB = 0x00; PORTC = 0x00; PORTF = 0x00; PORTK = 0x00; PORTL = 0x00; //set all ports LOW
       out_pos++; //next bit
     }
-    Kill_Ten(); Kill_Ten(); Kill_Ten(); //fill out 30uSec end of Frame
-    Kill_Ten(); Kill_Ten(); Kill_Ten(); //fill out 30uSec end of Frame, this should not be needed but seems to reduce color glitching
+    //fill out 30uSec end of Frame
+    Kill_Ten(); Kill_Ten(); Kill_Ten();
+    Kill_Ten(); Kill_Ten(); //this is more than 30uSec but seems to reduce color glitching 
   }
   
-  SREG = oldSREG; // Re-enable interupts if they were enabled
-
-  //PORTA = 0x00; PORTB = 0x00; PORTC = 0x00; PORTF = 0x00; PORTK = 0x00; PORTL = 0x00; //set all ports LOW
+  //SREG = oldSREG; // Re-enable interupts if they were enabled
 
   if (use_Guard) { Serial.write('d'); }
-}
+} //~16200uSec or 16ms = ~50fps with just under 4ms per frame for other logic
 
-void Mega_Nodesign::Set_Pixel (int row, int col, byte high_bright, unsigned int color) { //use this to set values in "frame_buffer"
+void Mega_Nodesign::Set_Pixel(int row, int col, byte high_bright, unsigned int color) { //use this to set values in "frame_buffer"
   //please note this needs work, use high_bight, high_bright should come in as 0xX0, validate <=CC
 
-  //the highest block of the mask is the leftmost light, this goes to correct column position then skips to the LSB of the color value
-  int start = (24 - col) * 26 + 25; //so go backward
-  int line = row - 1; //push this so row 1 is accutally the zero bit of the Mask
-  while (line >= 8) { line -= 8; } //push so line is correct for "PORT"
-  byte over = 0x01 << line; //set overwrite mask to desired bit
-  byte *mask_ptr; //used inside the for loop
-  
-  //set pointer to desired array to itterate through
+  byte *mask_ptr; //set pointer to desired array to itterate through
+  byte row_mask; //bit mask to change only desired row
   if (col >= 25) { //right side
-    if (row >= 17) { mask_ptr = Mask_Right_L; }
-    else if (row >= 9) { mask_ptr = Mask_Right_K; }
-    else { mask_ptr = Mask_Right_F; }
+    if (row >= 17) { mask_ptr = Mask_Right_L; row_mask = 0x01 << (row - 17); } //worst case is 7 shifts
+    else if (row >= 9) { mask_ptr = Mask_Right_K; row_mask = 0x01 << (row - 9); }
+    else { mask_ptr = Mask_Right_F; row_mask = 0x01 << (row - 1); }
+    col -= 24; //allow user to specify 48 columns, but convert to only 24 lights in substring
   }
   else { //left side
-    if (row >= 17) { mask_ptr = Mask_Left_C; }
-    else if (row >= 9) { mask_ptr = Mask_Left_B; }
-    else { mask_ptr = Mask_Left_A; }
+    if (row >= 17) { mask_ptr = Mask_Left_C; row_mask = 0x01 << (row - 17); }
+    else if (row >= 9) { mask_ptr = Mask_Left_B; row_mask = 0x01 << (row - 9); }
+    else { mask_ptr = Mask_Left_A; row_mask = 0x01 << (row - 1); }
   }
   
-  //remember that puting a 1 in the mask will write a 0 to the light
-  for (int b = 11; b >= 0; b--) { //only trying to change color value right now
-    if (color & (0x0001U << b)) { mask_ptr[start - b] &= (byte)~over; } //AND with a 0 in the desired bit, will set selected bit to 0
-    else { mask_ptr[start - b] |= (byte)over; } //OR with a 1 in the desired bit, will set selected bit to 1
-  }
-}
+  //the highest block of the mask is the leftmost light, this goes to correct column position then skips to the LSB of the color value
+  mask_ptr = mask_ptr + ((24 - col) * 26 - 12); //so go backward
+  
+  //remember that puting a 1 in the port mask will write a 0 to the light
+  unsigned int color_bit_mask = 0x0800U;
+  //unrolling improves performance
+  if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~row_mask; } //AND with a 0 in the desired bit, will set selected bit to 0
+  else { *mask_ptr = *mask_ptr | (byte)row_mask; } //OR with a 1 in the desired bit, will set selected bit to 1
+  color_bit_mask = color_bit_mask >> 1;
+  mask_ptr = mask_ptr - 1;
+  if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~row_mask; } //AND with a 0 in the desired bit, will set selected bit to 0
+  else { *mask_ptr = *mask_ptr | (byte)row_mask; } //OR with a 1 in the desired bit, will set selected bit to 1
+  color_bit_mask = color_bit_mask >> 1;
+  mask_ptr = mask_ptr - 1;
+  if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~row_mask; } //AND with a 0 in the desired bit, will set selected bit to 0
+  else { *mask_ptr = *mask_ptr | (byte)row_mask; } //OR with a 1 in the desired bit, will set selected bit to 1
+  color_bit_mask = color_bit_mask >> 1;
+  mask_ptr = mask_ptr - 1;
+  if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~row_mask; } //AND with a 0 in the desired bit, will set selected bit to 0
+  else { *mask_ptr = *mask_ptr | (byte)row_mask; } //OR with a 1 in the desired bit, will set selected bit to 1
+  color_bit_mask = color_bit_mask >> 1;
+  mask_ptr = mask_ptr - 1;
+  if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~row_mask; } //AND with a 0 in the desired bit, will set selected bit to 0
+  else { *mask_ptr = *mask_ptr | (byte)row_mask; } //OR with a 1 in the desired bit, will set selected bit to 1
+  color_bit_mask = color_bit_mask >> 1;
+  mask_ptr = mask_ptr - 1;
+  if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~row_mask; } //AND with a 0 in the desired bit, will set selected bit to 0
+  else { *mask_ptr = *mask_ptr | (byte)row_mask; } //OR with a 1 in the desired bit, will set selected bit to 1
+  color_bit_mask = color_bit_mask >> 1;
+  mask_ptr = mask_ptr - 1;
+  if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~row_mask; } //AND with a 0 in the desired bit, will set selected bit to 0
+  else { *mask_ptr = *mask_ptr | (byte)row_mask; } //OR with a 1 in the desired bit, will set selected bit to 1
+  color_bit_mask = color_bit_mask >> 1;
+  mask_ptr = mask_ptr - 1;
+  if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~row_mask; } //AND with a 0 in the desired bit, will set selected bit to 0
+  else { *mask_ptr = *mask_ptr | (byte)row_mask; } //OR with a 1 in the desired bit, will set selected bit to 1
+  color_bit_mask = color_bit_mask >> 1;
+  mask_ptr = mask_ptr - 1;
+  if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~row_mask; } //AND with a 0 in the desired bit, will set selected bit to 0
+  else { *mask_ptr = *mask_ptr | (byte)row_mask; } //OR with a 1 in the desired bit, will set selected bit to 1
+  color_bit_mask = color_bit_mask >> 1;
+  mask_ptr = mask_ptr - 1;
+  if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~row_mask; } //AND with a 0 in the desired bit, will set selected bit to 0
+  else { *mask_ptr = *mask_ptr | (byte)row_mask; } //OR with a 1 in the desired bit, will set selected bit to 1
+  color_bit_mask = color_bit_mask >> 1;
+  mask_ptr = mask_ptr - 1;
+  if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~row_mask; } //AND with a 0 in the desired bit, will set selected bit to 0
+  else { *mask_ptr = *mask_ptr | (byte)row_mask; } //OR with a 1 in the desired bit, will set selected bit to 1
+} //~13uSec
 
 void Mega_Nodesign::Kill_Ten() { //uses up ~10uSec with assembly NOPs
   __asm__ volatile (
@@ -161,41 +196,53 @@ void Mega_Nodesign::Kill_Ten() { //uses up ~10uSec with assembly NOPs
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
-  );
+  ); //1
     __asm__ volatile (
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
-  );
+  ); //2
     __asm__ volatile (
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
-  );
+  ); //3
     __asm__ volatile (
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
-  );
+  ); //4
     __asm__ volatile (
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
-  );
+  ); //5
     __asm__ volatile (
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
-  );
+  ); //6
+      __asm__ volatile (
+    "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
+    "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
+    "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
+    "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
+  ); //7
+      __asm__ volatile (
+    "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
+    "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
+    "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
+    "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
+  ); //8
   //last, -4 call/ret
-}
+} //test exactlly how much time we have to kill and still get stable color
 
-void Mega_Nodesign::Clear_Screen () { //sets all Masks to BLACK
+void Mega_Nodesign::Clear_Screen() { //sets all Masks to BLACK
   for (int i = 1; i <= 24; i++) {
     for (int j = 1; j <= 48; j++) {
       Set_Pixel(i, j, DEFAULT_BRIGHT, BLACK);
@@ -203,7 +250,7 @@ void Mega_Nodesign::Clear_Screen () { //sets all Masks to BLACK
   }
 }
 
-void Mega_Nodesign::Load_Logo () { //puts logo from EEPROM int Masks via Set_Pixel
+void Mega_Nodesign::Load_Logo() { //puts logo from EEPROM int Masks via Set_Pixel
   unsigned int val, addr = 0;
   for (int i = 1; i <= 24; i++) { //24 rows
     for (int j = 1; j <= 26; j++) { //26 cols
@@ -213,7 +260,7 @@ void Mega_Nodesign::Load_Logo () { //puts logo from EEPROM int Masks via Set_Pix
       val = val << 8; //shift high byte over
       val += EEPROM.read(addr);
       addr++;
-      Set_Pixel(i, j, 6, val);
+      Set_Pixel(i, j, DEFAULT_BRIGHT , val);
     }
   }
 }
@@ -228,6 +275,39 @@ bool Mega_Nodesign::Get_Guard() { //Getter
 
 bool Mega_Nodesign::Get_Working () { //Getter
   return (working);
+}
+
+void Mega_Nodesign::Put_Char(int row, int col, char letter, unsigned int color) {
+  //convert text row/col to sign row/col
+  byte start_row = 8 * row - 7;
+  byte start_col = 6 * col - 5;
+  byte end_row = start_row + 8;
+  byte end_col = start_col + 5;
+
+  int ee_addr = 5 * letter + 1248; //1248 this is where the logo ends in EEPROM
+  for (byte i = start_col; i <= end_col; i++) { //col
+    byte val = EEPROM.read(ee_addr);
+    byte mask_bit = 0x01;
+    for (byte j = start_row; j <= end_row; j++) { //row
+      if (val & mask_bit) { Set_Pixel(j, i, DEFAULT_BRIGHT, color); }
+      else { Set_Pixel(j, i, DEFAULT_BRIGHT, BLACK); } //this is to keep time constant
+      mask_bit = mask_bit << 1;
+    }
+    ee_addr++;
+  }
+} //~713uSec 520uSec are the calls to Set_Pixel
+
+void Mega_Nodesign::Put_String(int row, int col, char text[], int len, unsigned int color) {
+  //there is no text wrapping
+  for (int i = 0; i < len; i++) {
+    Put_Char(row, col + i, text[i], color);
+  }
+}
+
+void Mega_Nodesign::Recv_Frame() {
+  Serial.write('g'); //send "start"
+  //stubb
+  Serial.write('d'); //send "done"
 }
 
 Mega_Nodesign::Mega_Nodesign () { //the only constructor
@@ -259,4 +339,3 @@ void Mega_Nodesign::stop () {
 
   working = false;
 }
-
