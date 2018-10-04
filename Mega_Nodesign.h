@@ -12,7 +12,7 @@
 #define GREEN   0x00F0U
 #define PURPLE  0x0D3AU
 #define YELLOW  0x00FFU
-#define CYAN    0x0FF0U
+#define CYAN    0x0FF0U //it's full of cyan, I put it in myself!
 #define ORANGE  0x001FU
 #define WHITE   0x0FFFU
 #define BLACK   0x0000U
@@ -40,6 +40,13 @@ public:
   //Drawing
   void Load_Logo(); //loads BaltimoreNode logo into masks
   void Clear_Screen(); //sets masks to black
+  
+  //Text: there are only 3 rows and 9 columns for text
+  void Put_Char(int row, int col, char letter, unsigned int color);
+  void Put_String(int row, int col, char text[], int len, unsigned int color);
+
+  //Communications
+  void Recv_Frame(); //recieve an entire screen via Serial
 
 private: 
   //Methods
