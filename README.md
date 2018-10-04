@@ -1,10 +1,5 @@
-# mega-nodesign
-
 Baltimore Node G35 Sign User Guide
-
-::The Grand Design::
-
-We have a low resolution 4’ high 8’ long RGB sign made from repurposed GE G35 Christmas light strings and an Arduino Mega. The original controllers have been removed from the strings of lights and the data lines have been connected to 6 of the 8bit ports on the Mega.
+By: Chris Lindsay
 
 ::System Hardware Overview::
 
@@ -12,45 +7,109 @@ Power Supply:
 The large blue power supply provides 5v to the light board and the Arduino Mega.
 
 Display Board:
-G35 Light strings are formed into a 24 row by 48 column display board. The lights are zip tied to a white beg board with aluminum L-bracket supports.
+G35 Light strings are formed into a 24 row by 48 column display board.
 
 Lights:
-There are 48 lines of 24 G35 Christmas lights connected to an Arduino Mega. Physically there are only 24 lines of lights. The data line was cut separting each string into 2 sets of 24 lights. This cuts the time to update all the lights in half.
+There are 48 lines of 24 G35 Christmas lights connected to an Arduino Mega. 
 
 Ports:
 The following AVR ports are completely used for the display - A B C F K L
-Please note that this percludes the use of the SPI bus, but does not interfere with the I2C or UARTS.
+
+Pins:
+string : pin
+power relay: 
+1: 22		PORTA
+2: 23
+3: 24
+4: 25
+5: 26
+6: 27
+7: 28
+8: 29
+9: 53		PORTB
+10: 52
+11: 51
+12: 50
+13: 10
+14: 11
+15: 12
+16: 13
+17: 37		PORTC
+18: 36
+19: 35
+20: 34
+21: 33
+22: 32
+23: 31
+24: 30
+25: A0		PORTF
+26: A1
+27: A2
+28: A3
+29: A4
+30: A5
+31: A6
+32: A7
+33: A8		PORTK
+34: A9
+35: A10
+36: A11
+37: A12
+38: A13
+39: A14
+40: A15
+41: 49		PORTL
+42: 48
+43: 47
+44: 46
+45: 45
+46: 44
+47: 43
+48: 42
 
 ::System Software Overview::
 
 Memory:
-The frame buffer uses up 4K of the available 8K of ram. Leaving the remaining 8K available for additional code.
-The first 1248 bytes of the EEPROM are filled with the Baltimore Node logo. Remember that the EEPROM addressing is zero indexed.
+The frame buffer uses up 4K of the available 8K of RAM. Leaving YK available for additional code. The first 1248 bytes of the EEPROM are filled with the Baltimore Node logo. The next 640 bytes of the EEPROM are filled with the 5x8 font.
 
 Startup:
-The template sketch automatically creates the frame buffer. Then fills the frame buffer with addressing data. Ports A B C F K and L are all set to OUTPUT and have their value set to LOW. The enumeration is performed on the strings of G35 lights. The Serial port is started at SER_BAUD rate. The logo is loaded from the EEPROM into the frame buffer and displayed for 5 seconds. The screen is cleared, but the lights are NOT updated. Then the user’s setup code is performed.
+The template sketch automatically creates the frame buffer. Then fills the frame buffer with addressing data. Ports A B C F K and L are all set to OUTPUT and have their value set to LOW. The enumeration is performed on the strings of G35 lights. The logo is loaded and displayed for 5 seconds. Then the user’s setup code is performed.
 
 Color Constants:
-All colors are represented by the LS12B of an unsigned int value. Format: – 4 Brightness, 4b Blue, 4b Green, 4b Red.
-RED  BLUE  GREEN  PURP  YELLOW  CYAN  ORANGE  WHITE  BLACK
+All colors are represented by the LS12B of an unsigned int. Format – 4 Brightness, 4b Blue, 4b Green, 4b Red.
 
-::User Functions::
-located in Node_Header.h
+RED  BLUE  GREEN  PURPLE  YELLOW  CYAN  ORANGE  WHITE  BLACK
 
-Setup_Node_Sign():
-This function is used by the setup function to perform all nessesary initialization of the G35 light strings. There is no need for the user to ever call this function.
+User Functions:
+Mega_Nodesign(): constructor
+This function enummerates the light strings, prepares the masks and displays the logo onto the light strings. The masks are cleared but the user must call Send_Picture() to update the light strings.
+
+begin():
+Enables power to the lightstrings. Enummerates the Ids for the lights on all the strings. Masks are filled with ID values. The logo is loaded and sent to the sign. After a delay of 5 seconds the masks are cleared. It is up to the user code to update the sign, this keeps the logo displayed until real content is ready.
+
+stop();
+Disables power to the lightstrings. After this is called nothing will be displayed on the sign.
 
 Send_Picture():
-This function must be called whenever the user desires to update the display. Please note this function disables all interrupts while performing the light update. So micros() and millis() will not be updated.
+This function must be called whenever the user desires to update the display. Please note this function disables all interrupts while performing the update. So micros() and millis() will not be updated.
 
-Send_Picture_Guard():
-This functions sends ‘s’ over the serial port before updating the display. Then sends ‘d’ after completion. Please note this function disables all interrupts while performing the update.
+Set_Guard(): Get_Guard():
+The guard sends an ‘s’ before updating the light strings with Send_Picture and an ‘d’ once complete.
+
+Get_Working():
+Returns true if stop() has not been called.
 
 Set_Pixel(row, col, high_bright, color):
-This function changes a color value in the frame buffer. Row is 1<>24. Col is 1<>48. Bright is not currently implemented so any byte value will do. Color is any unsigned int value like a Color Constant. Only the lower 12 bits are used to set the color value in the frame buffer. Please note that it’s not currently possible to change the brightness.
+This function changes a color value in the frame buffer. Row is 1<>24. Col is 1<>48. Bright is not currently implemented so any byte value will do. Color is any value like a Color Constant.
 
 Clear_Screen():
-This function changes the color value in the frame buffer for all the pixels to BLACK.
+This function changes all the color values in the masks to BLACK
 
 Load_Logo():
 This function updates the frame buffer with a copy of the Baltimore Node logo. Please note that the right most 22 columns are not changed by this function.
+
+Put_Char(row, col, letter, color):
+Puts a 5x8 pixel font image of color into the frame buffer based on the 3 row by 8 column font of letter. 
+
+Put_String(row, col, text, len, color):
+Puts a series of 5x8 pixel font images of color into the frame buffer. There is a 1 column space between each letter in the string. Supports C’ish style string, there is no NULL character termination, so len is only the number of characters.
