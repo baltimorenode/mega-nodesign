@@ -243,12 +243,35 @@ void Mega_Nodesign::Kill_Ten() { //uses up ~10uSec with assembly NOPs
 } //test exactlly how much time we have to kill and still get stable color
 
 void Mega_Nodesign::Clear_Screen() { //sets all Masks to BLACK
-  for (int i = 1; i <= 24; i++) {
-    for (int j = 1; j <= 48; j++) {
-      Set_Pixel(i, j, DEFAULT_BRIGHT, BLACK);
-    }
+  int pos = 14; //start of color for first pixel
+
+  for (int j = 0; j <= 24; j++) { //24 lights per string
+    Mask_Left_A[pos] = 0xFF; Mask_Left_B[pos] = 0xFF; Mask_Left_C[pos] = 0xFF; Mask_Right_F[pos] = 0xFF; Mask_Right_K[pos] = 0xFF; Mask_Right_L[pos] = 0xFF;
+    pos++;
+    Mask_Left_A[pos] = 0xFF; Mask_Left_B[pos] = 0xFF; Mask_Left_C[pos] = 0xFF; Mask_Right_F[pos] = 0xFF; Mask_Right_K[pos] = 0xFF; Mask_Right_L[pos] = 0xFF;
+    pos++;
+    Mask_Left_A[pos] = 0xFF; Mask_Left_B[pos] = 0xFF; Mask_Left_C[pos] = 0xFF; Mask_Right_F[pos] = 0xFF; Mask_Right_K[pos] = 0xFF; Mask_Right_L[pos] = 0xFF;
+    pos++;
+    Mask_Left_A[pos] = 0xFF; Mask_Left_B[pos] = 0xFF; Mask_Left_C[pos] = 0xFF; Mask_Right_F[pos] = 0xFF; Mask_Right_K[pos] = 0xFF; Mask_Right_L[pos] = 0xFF;
+    pos++;
+    Mask_Left_A[pos] = 0xFF; Mask_Left_B[pos] = 0xFF; Mask_Left_C[pos] = 0xFF; Mask_Right_F[pos] = 0xFF; Mask_Right_K[pos] = 0xFF; Mask_Right_L[pos] = 0xFF;
+    pos++;
+    Mask_Left_A[pos] = 0xFF; Mask_Left_B[pos] = 0xFF; Mask_Left_C[pos] = 0xFF; Mask_Right_F[pos] = 0xFF; Mask_Right_K[pos] = 0xFF; Mask_Right_L[pos] = 0xFF;
+    pos++;
+    Mask_Left_A[pos] = 0xFF; Mask_Left_B[pos] = 0xFF; Mask_Left_C[pos] = 0xFF; Mask_Right_F[pos] = 0xFF; Mask_Right_K[pos] = 0xFF; Mask_Right_L[pos] = 0xFF;
+    pos++;
+    Mask_Left_A[pos] = 0xFF; Mask_Left_B[pos] = 0xFF; Mask_Left_C[pos] = 0xFF; Mask_Right_F[pos] = 0xFF; Mask_Right_K[pos] = 0xFF; Mask_Right_L[pos] = 0xFF;
+    pos++;
+    Mask_Left_A[pos] = 0xFF; Mask_Left_B[pos] = 0xFF; Mask_Left_C[pos] = 0xFF; Mask_Right_F[pos] = 0xFF; Mask_Right_K[pos] = 0xFF; Mask_Right_L[pos] = 0xFF;
+    pos++;
+    Mask_Left_A[pos] = 0xFF; Mask_Left_B[pos] = 0xFF; Mask_Left_C[pos] = 0xFF; Mask_Right_F[pos] = 0xFF; Mask_Right_K[pos] = 0xFF; Mask_Right_L[pos] = 0xFF;
+    pos++;
+    Mask_Left_A[pos] = 0xFF; Mask_Left_B[pos] = 0xFF; Mask_Left_C[pos] = 0xFF; Mask_Right_F[pos] = 0xFF; Mask_Right_K[pos] = 0xFF; Mask_Right_L[pos] = 0xFF;
+    pos++;
+    Mask_Left_A[pos] = 0xFF; Mask_Left_B[pos] = 0xFF; Mask_Left_C[pos] = 0xFF; Mask_Right_F[pos] = 0xFF; Mask_Right_K[pos] = 0xFF; Mask_Right_L[pos] = 0xFF;
+    pos += 15; //goto color of next pixel
   }
-}
+} //445uSec
 
 void Mega_Nodesign::Load_Logo() { //puts logo from EEPROM int Masks via Set_Pixel
   unsigned int val, addr = 0;
@@ -278,24 +301,80 @@ bool Mega_Nodesign::Get_Working () { //Getter
 }
 
 void Mega_Nodesign::Put_Char(int row, int col, char letter, unsigned int color) {
-  //convert text row/col to sign row/col
-  byte start_row = 8 * row - 7;
-  byte start_col = 6 * col - 5;
-  byte end_row = start_row + 8;
-  byte end_col = start_col + 5;
-
-  int ee_addr = 5 * letter + 1248; //1248 this is where the logo ends in EEPROM
-  for (byte i = start_col; i <= end_col; i++) { //col
-    byte val = EEPROM.read(ee_addr);
-    byte mask_bit = 0x01;
-    for (byte j = start_row; j <= end_row; j++) { //row
-      if (val & mask_bit) { Set_Pixel(j, i, DEFAULT_BRIGHT, color); }
-      else { Set_Pixel(j, i, DEFAULT_BRIGHT, BLACK); } //this is to keep time constant
-      mask_bit = mask_bit << 1;
-    }
-    ee_addr++;
+  //the row converts directly to a Mask which works to 8 rows on sign
+  byte display_col = 6 * col - 5;
+  byte *mask_ptr;
+  if (display_col >= 25) { //left
+    if (row == 1) { mask_ptr = Mask_Right_F; }
+    else if (row == 2) { mask_ptr = Mask_Right_K; }
+    else { mask_ptr = Mask_Right_L; }
+    display_col -= 24;
+  } else { //right
+    if (row == 1) { mask_ptr = Mask_Left_A; }
+    else if (row == 2) { mask_ptr = Mask_Left_B; }
+    else { mask_ptr = Mask_Left_C; }
   }
-} //~713uSec 520uSec are the calls to Set_Pixel
+  mask_ptr += (24 - display_col) * 26 + 14; //MSB of color for starting column
+  int ee_addr = 5 * letter + 1248; //1248 this is where the logo ends in EEPROM
+  for (int font = 0; font <= 5; font++) { //5 columns of the character font
+    byte val = EEPROM.read(ee_addr);
+    val = ~val; //1->0 0->1 for faster write to strings
+    unsigned int color_mask = 0x0800U;
+    //for(int b = 0; b <= 11; b++) { //unroll this after proof to improve performance
+      if (color & color_mask) { *mask_ptr = (byte)val; }
+      else { *mask_ptr = (byte)0xFF; }
+      color_mask = color_mask >> 1;
+      mask_ptr = mask_ptr + 1;
+      if (color & color_mask) { *mask_ptr = (byte)val; }
+      else { *mask_ptr = (byte)0xFF; }
+      color_mask = color_mask >> 1;
+      mask_ptr = mask_ptr + 1;
+      if (color & color_mask) { *mask_ptr = (byte)val; }
+      else { *mask_ptr = (byte)0xFF; }
+      color_mask = color_mask >> 1;
+      mask_ptr = mask_ptr + 1;
+      if (color & color_mask) { *mask_ptr = (byte)val; }
+      else { *mask_ptr = (byte)0xFF; }
+      color_mask = color_mask >> 1;
+      mask_ptr = mask_ptr + 1;
+      if (color & color_mask) { *mask_ptr = (byte)val; }
+      else { *mask_ptr = (byte)0xFF; }
+      color_mask = color_mask >> 1;
+      mask_ptr = mask_ptr + 1;
+      if (color & color_mask) { *mask_ptr = (byte)val; }
+      else { *mask_ptr = (byte)0xFF; }
+      color_mask = color_mask >> 1;
+      mask_ptr = mask_ptr + 1;
+      if (color & color_mask) { *mask_ptr = (byte)val; }
+      else { *mask_ptr = (byte)0xFF; }
+      color_mask = color_mask >> 1;
+      mask_ptr = mask_ptr + 1;
+      if (color & color_mask) { *mask_ptr = (byte)val; }
+      else { *mask_ptr = (byte)0xFF; }
+      color_mask = color_mask >> 1;
+      mask_ptr = mask_ptr + 1;
+      if (color & color_mask) { *mask_ptr = (byte)val; }
+      else { *mask_ptr = (byte)0xFF; }
+      color_mask = color_mask >> 1;
+      mask_ptr = mask_ptr + 1;
+      if (color & color_mask) { *mask_ptr = (byte)val; }
+      else { *mask_ptr = (byte)0xFF; }
+      color_mask = color_mask >> 1;
+      mask_ptr = mask_ptr + 1;
+      if (color & color_mask) { *mask_ptr = (byte)val; }
+      else { *mask_ptr = (byte)0xFF; }
+      mask_ptr = mask_ptr + 1;
+      color_mask = color_mask >> 1;
+      if (color & color_mask) { *mask_ptr = (byte)val; }
+      else { *mask_ptr = (byte)0xFF; }
+      mask_ptr = mask_ptr + 1;
+    //}
+    mask_ptr = mask_ptr - 38; //skip to color portion of frame for next column
+    ee_addr = ee_addr + 1;
+  }
+  //perhaps force 6th column of black to ensure clean spaces between letters?
+  //removing the space would facilitate storing and dispalying graphic sprites in the font
+} //32uSec
 
 void Mega_Nodesign::Put_String(int row, int col, char text[], int len, unsigned int color) {
   //there is no text wrapping
