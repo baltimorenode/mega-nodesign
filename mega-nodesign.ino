@@ -1,48 +1,50 @@
-//Main sketch file
-//Created by: Chris Lindsay for BaltimoreNode
+//create sign object
+//begin
+//testing methods
 
-/* *****************************************
- * This sketch template creates a virtual frame buffer abstraction
- * It allows the user to create any desired graphic
- * Using the 24x48 G35 board for display
- *
- * *****************************************
- * Please note you must call Send_Picture() every time you want the display to change
- * The update takes about 4ms during which time Micros() and Millis() will not be updated
- *   The timers for these functions has to be disabled during Send_Picture()
- * The user has 4K of RAM and 2K of EEPROM to use in there code
- * 
- * *****************************************
-*/
+#include "Mega_Nodesign.h"
 
-#include "Node_Header.h"
-
-#define SER_BAUD 9600
-
-//add your globals here
+Mega_Nodesign sign;
 
 void setup() {
-  Serial.begin(SER_BAUD);
+  Serial.begin(9600);
+  Serial.println("Baltimore Node Mega Nodesign");
 
-  Setup_Node_Sign(); 
+  sign.begin(); //sign starts
 
-  //start your setup code here:
-
+  // put your setup code here, to run once:
 }
 
 void loop() {
-  //add you loop code here
-  
-  //some test code
-  unsigned int v = 0x0003;
-  for (int i = 1; i <= 24; i++) {
-    for (int j = 1; j <= 48; j++) {
-      Set_Pixel(i, j, 0x06, v);
-      Send_Picture();
-      v += 17;
+  for (int i=1; i<=24; i++) {
+    for (int j=1; j<=48; j++) {
+      sign.Set_Pixel(i, j, DEFAULT_BRIGHT, RED);
+      sign.Send_Picture();
     }
   }
-  Clear_Screen();
+  delay (500);
+  for (int i=1; i<=24; i++) {
+    for (int j=1; j<=48; j++) {
+      sign.Set_Pixel(i, j, DEFAULT_BRIGHT, YELLOW);
+      sign.Send_Picture();
+    }
+  }
+  delay(500);
+  for (int i=1; i<=24; i++) {
+    for (int j=1; j<=48; j++) {
+      sign.Set_Pixel(i, j, DEFAULT_BRIGHT, BLUE);
+      sign.Send_Picture();
+    }
+  }
+
+  delay(3000);
+
+  Serial.println("OK!");
+  sign.Clear_Screen();
+  sign.Send_Picture();
+  delay(500);
+
+//  sign.stop();
+//  while (true) { ; } //infinite do nothing loop
 
 }
-
