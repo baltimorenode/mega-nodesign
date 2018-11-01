@@ -383,7 +383,7 @@ void Mega_Nodesign::Put_String(int row, int col, char text[], int len, unsigned 
   }
 }
 
-void Mega_Nodesign::Recv_Frame() { //recieves 1 picture from the serial port
+void Mega_Nodesign::Recv_Screen() { //requires 2304 bytes recieved
   byte temp_in;
   unsigned int temp_color;
 
@@ -391,22 +391,18 @@ void Mega_Nodesign::Recv_Frame() { //recieves 1 picture from the serial port
   for (int x = 1; x <= 48; x++) { //repeat for 24 lines
     for (int y = 1; y <= 24; y++) {
       while(Serial.available() < 1) { }
-      temp_in = Serial.read(); //b
+      temp_in = Serial.read(); //MSB
       temp_color = temp_in << 8;
 
       while(Serial.available() < 1) { }
-      temp_in = Serial.read(); //g
-      temp_color += (temp_in << 4);
-
-      while(Serial.available() < 1) { }
-      temp_in = Serial.read(); //r
+      temp_in = Serial.read(); //LSB
       temp_color += temp_in;
 
       Set_Pixel(y, x, DEFAULT_BRIGHT, temp_color); //this will be slow
     }
   }
   Serial.write('d'); //send "done"
-}
+} //how to make this event driven?
 
 Mega_Nodesign::Mega_Nodesign () { //the only constructor
   //set port bits to OUTPUT
