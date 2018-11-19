@@ -1,3 +1,35 @@
+/*
+ * Mega_NodeSign
+ * use Arduino Mega to drive 48 (2 sets of 24) GE G35 light strings simultaniously
+ * each row on board is cut in half, can drive both at once
+ * so 2 24x24 arrays side by side, 18,720 uSeconds best case, 50 frames a second
+ * 
+ * created by Chris Lindsay for Baltimore Node
+ * created using documentation from deepdarc.com
+//desc: use 6 ports on Mega to send string data A, B (pins 10-13, 50-53), C, F, K, and L
+//24x26 unsigned int Logo is stored at start of EEPROM
+//******************DATAGRAM*****************************
+//Idle bus state: Low
+//Start Bit: High for 10uSeconds
+//Zero Low for 10uSeconds, High for 20uSeconds
+//One Low for 20uSeconds, High for 10uSeconds
+//30uSeconds between frames
+//
+//all bits are the same length after Start
+//so do a state check every 10uSeconds
+//
+//Each frame is 26 bits long and has the following format:
+//Start bit
+//6-Bit Bulb Address, MSB first
+//8-Bit Brightness, MSB first    12-15 (only the low 4 bits fill out unsigned int)
+//4-Bit Blue, MSB first     8-11
+//4-Bit Green, MSB first      4-7
+//4-Bit Red, MSB first      0-3
+//pack into unsigned int, this uses only 4 bits for brightness
+// 4b bright, 4b, blue, 4b green, 4b red
+//max brightness is 0xCC
+//********************************************************
+*/
 
 #ifndef _Mega_Nodesign_
 #define _Mega_Nodesign_
