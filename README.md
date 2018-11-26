@@ -1,21 +1,21 @@
 Baltimore Node G35 Sign User Guide
 By: Chris Lindsay
 
-::System Hardware Overview::
+# ::System Hardware Overview::
 
-Power Supply:
+### Power Supply:
 The large blue power supply provides 5v to the light board and the Arduino Mega.
 
-Display Board:
+### Display Board:
 G35 Light strings are formed into a 24 row by 48 column display board.
 
-Lights:
+### Lights:
 There are 48 lines of 24 G35 Christmas lights connected to an Arduino Mega. 
 
-Ports:
+### Ports:
 The following AVR ports are completely used for the display - A B C F K L
 
-Pins:
+### Pins:
 string : pin
 power relay: 
 1: 22		PORTA
@@ -67,27 +67,28 @@ power relay:
 47: 43
 48: 42
 
-::System Software Overview::
+# ::System Software Overview::
 
-Memory:
-The frame buffer uses up 4K of the available 8K of RAM. Leaving YK available for additional code. The first 1248 bytes of the EEPROM are filled with the Baltimore Node logo. The next 640 bytes of the EEPROM are filled with the 5x8 font.
+### Memory:
+The frame buffer uses up 4K of the available 8K of RAM. Leaving less than 4K available for additional code.
+The first 1248 bytes of the EEPROM are filled with the Baltimore Node logo. The next 640 bytes of the EEPROM are filled with the 5x8 font.
 
-Startup:
+### Startup:
 The template sketch automatically creates the frame buffer. Then fills the frame buffer with addressing data. Ports A B C F K and L are all set to OUTPUT and have their value set to LOW. The enumeration is performed on the strings of G35 lights. The logo is loaded and displayed for 5 seconds. Then the user’s setup code is performed.
 
-Color Constants:
+### Color Constants:
 All colors are represented by the LS12B of an unsigned int. Format – 4 Brightness, 4b Blue, 4b Green, 4b Red.
 
 RED  BLUE  GREEN  PURPLE  YELLOW  CYAN  ORANGE  WHITE  BLACK
 
-User Functions:
+### User Functions:
 Mega_Nodesign(): constructor
 This function enummerates the light strings, prepares the masks and displays the logo onto the light strings. The masks are cleared but the user must call Send_Picture() to update the light strings.
 
 begin():
 Enables power to the lightstrings. Enummerates the Ids for the lights on all the strings. Masks are filled with ID values. The logo is loaded and sent to the sign. After a delay of 5 seconds the masks are cleared. It is up to the user code to update the sign, this keeps the logo displayed until real content is ready.
 
-stop();
+stop():
 Disables power to the lightstrings. After this is called nothing will be displayed on the sign.
 
 Send_Picture():
