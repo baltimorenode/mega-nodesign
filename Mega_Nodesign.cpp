@@ -414,8 +414,9 @@ Mega_Nodesign::Mega_Nodesign () { //the only constructor
 }
 
 void Mega_Nodesign::begin () {
-  //set PSU pin to High
-  //code here
+  //set PSU pin to LOW (ON)
+  digitalWrite(14, LOW);
+  digitalWrite(15, LOW);
 
   working = true;
   
@@ -428,8 +429,9 @@ void Mega_Nodesign::begin () {
 }
 
 void Mega_Nodesign::stop () {
-  //set PSU pin to Low
-  //code here
+  //set PSU pin to HIGH (OFF)
+  digitalWrite(14, HIGH);
+  digitalWrite(15, HIGH);
 
   working = false;
 }
