@@ -1,3 +1,5 @@
+//this is test code that will be included into mega-game.h/cpp
+
 byte last;
 
 void setup() {
