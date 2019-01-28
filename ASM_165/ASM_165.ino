@@ -37,73 +37,73 @@ byte get_in() {
   byte value = 0;
 
   //clock and latch - parallel read in
-  PORTB = PORTB | clk_e_mask; //clk_e HIGH
-  PORTB = PORTB & not(latch_mask);//latch LOW
-  wait_1usec ();
-  PORTB = PORTB | latch_mask; //latch HIGH
-  PORTB = PORTB & not(clk_e_mask); //clk_e LOW
+  PORTB |= clk_e_mask; //clk_e HIGH
+  PORTB &= ~latch_mask;//latch LOW
+  __asm__ volatile ( "   nop      "   "\n\t" ); //only needs to be 20ns
+  PORTB |= latch_mask; //latch HIGH
+  PORTB &= ~clk_e_mask; //clk_e LOW
 
   //1 bit serial output
-  PORTB = PORTB | clock_mask; //clock HIGH
+  PORTB |= clock_mask; //clock HIGH
   __asm__ volatile ( "   nop      "   "\n\t" );
   value = ((PINB & data_mask) >> 3); //push to 0 or 1, mask to LSB
-  PORTB = PORTB & not(clock_mask); //clock LOW
+  PORTB &= ~clock_mask; //clock LOW
   
-  wait_1usec ();
+  __asm__ volatile ( "   nop      "   "\n\t" );
 
-  PORTB = PORTB | clock_mask; //clock HIGH
+  PORTB |= clock_mask; //clock HIGH
   __asm__ volatile ( "   nop      "   "\n\t" );
   value = value << 1;
   value |= ((PINB & data_mask) >> 3);
-  PORTB = PORTB & not(clock_mask); //clock LOW
+  PORTB &= ~clock_mask; //clock LOW
   
-  wait_1usec ();
+  __asm__ volatile ( "   nop      "   "\n\t" );
 
-  PORTB = PORTB | clock_mask; //clock HIGH
+  PORTB |= clock_mask; //clock HIGH
   __asm__ volatile ( "   nop      "   "\n\t" );
   value = value << 1;
   value |= ((PINB & data_mask) >> 3);
-  PORTB = PORTB & not(clock_mask); //clock LOW
+  PORTB &= ~clock_mask; //clock LOW
   
-  wait_1usec ();
+  w__asm__ volatile ( "   nop      "   "\n\t" );
 
-  PORTB = PORTB | clock_mask; //clock HIGH
+  PORTB |= clock_mask; //clock HIGH
   __asm__ volatile ( "   nop      "   "\n\t" );
   value = value << 1;
   value |= ((PINB & data_mask) >> 3);
-  PORTB = PORTB & not(clock_mask); //clock LOW
+  PORTB &= ~clock_mask; //clock LOW
   
-  wait_1usec ();
+  __asm__ volatile ( "   nop      "   "\n\t" );
 
-  PORTB = PORTB | clock_mask; //clock HIGH
+  PORTB |= clock_mask; //clock HIGH
   __asm__ volatile ( "   nop      "   "\n\t" );
   value = value << 1;
   value |= ((PINB & data_mask) >> 3);
-  PORTB = PORTB & not(clock_mask); //clock LOW
+  PORTB &= ~clock_mask; //clock LOW
   
-  wait_1usec ();
+  __asm__ volatile ( "   nop      "   "\n\t" );
 
-  PORTB = PORTB | clock_mask; //clock HIGH
+  PORTB |= clock_mask; //clock HIGH
   __asm__ volatile ( "   nop      "   "\n\t" );
   value = value << 1;
   value |= ((PINB & data_mask) >> 3);
-  PORTB = PORTB & not(clock_mask); //clock LOW
+  PORTB &= ~clock_mask; //clock LOW
   
-  wait_1usec ();
+  __asm__ volatile ( "   nop      "   "\n\t" );
 
-  PORTB = PORTB | clock_mask; //clock HIGH
+  PORTB |= clock_mask; //clock HIGH
   __asm__ volatile ( "   nop      "   "\n\t" );
   value = value << 1;
   value |= ((PINB & data_mask) >> 3);
-  PORTB = PORTB & not(clock_mask); //clock LOW
+  PORTB &= ~clock_mask; //clock LOW
   
-  wait_1usec ();
+  __asm__ volatile ( "   nop      "   "\n\t" );
 
-  PORTB = PORTB | clock_mask; //clock HIGH
+  PORTB |= clock_mask; //clock HIGH
   __asm__ volatile ( "   nop      "   "\n\t" );
   value = value << 1;
   value |= ((PINB & data_mask) >> 3);
-  PORTB = PORTB & not(clock_mask); //clock LOW
+  PORTB &= ~clock_mask; //clock LOW
   
   return (value);
 }
