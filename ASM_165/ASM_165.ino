@@ -65,7 +65,7 @@ byte get_in() {
   value |= ((PINB & data_mask) >> 3);
   PORTB &= ~clock_mask; //clock LOW
   
-  w__asm__ volatile ( "   nop      "   "\n\t" );
+  __asm__ volatile ( "   nop      "   "\n\t" );
 
   PORTB |= clock_mask; //clock HIGH
   __asm__ volatile ( "   nop      "   "\n\t" );
