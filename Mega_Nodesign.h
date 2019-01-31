@@ -79,6 +79,7 @@ public:
 
   //Communications
   void Recv_Frame(); //recieve an entire screen via Serial
+  void Recv_Pixel(); //puts sign into mode to receive pixel commands via Serial
 
 private: 
   //Methods
