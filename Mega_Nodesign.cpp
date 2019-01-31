@@ -404,6 +404,16 @@ void Mega_Nodesign::Recv_Screen() { //requires 2304 bytes recieved
   Serial.write('d'); //send "done"
 } //how to make this event driven?
 
+void Mega_Nodesign::Recv_Pixel() { //starting support for Pixelflut
+  byte temp_in;
+  int mode = 0;
+  while (true) {
+    while(Serial.available() < 1) { }
+    temp_in = Serial.read();
+    //parse here
+  }
+}
+
 Mega_Nodesign::Mega_Nodesign () { //the only constructor
   //set port bits to OUTPUT
   DDRA |= B11111111; DDRB |= B11111111; DDRC |= B11111111; DDRF |= B11111111; DDRK |= B11111111; DDRL |= B11111111;
