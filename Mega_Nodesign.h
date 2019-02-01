@@ -79,18 +79,27 @@ public:
 
   //Communications
   void Recv_Frame(); //recieve an entire screen via Serial
+  void Recv_Pixel(); //puts sign into mode to receive pixel commands via Serial
+
+  //Game Controller
+  bool Get_Button_PlayerOne(byte mask);
+  bool Get_Button_PlayerTwo(byte mask);
+  byte Get_Raw_PlayerOne();
+  byte Get_Raw_PlayerTwo();
 
 private: 
   //Methods
   void Kill_Ten(); //uses up 10uSec
   void Enummerate(); //assigns ID values to lights in sign
   void Prepare_Masks(); //puts ID and default color values into masks
+  void Get_Game_Input();
 
   //Frame Buffer Data
   byte Mask_Left_A[624], Mask_Left_B[624], Mask_Left_C[624], Mask_Right_F[624], Mask_Right_K[624], Mask_Right_L[624];
   
   bool use_Guard;
   bool working; //this is never set directly
+  byte Player_One, Player_Two; //last input from game controllers
 };
 
 #endif //_Mega_Nodesign_
