@@ -97,7 +97,7 @@ void Mega_Nodesign::Send_Picture() { //Output to ports to light strings
   //cli(); //Disable interupts, this prevents micros() and millis() from working :(
   
   int out_pos = 0; //mask array index
-  for (byte col = 0; col <= 23; col++) { //24 lights per row, arbitrary variable   
+  for (byte col = 0; col <= 22; col++) { //24 lights per row, arbitrary variable   
     //start bit
     PORTA = 0xFF; PORTB = 0xFF; PORTC = 0xFF; PORTF = 0xFF; PORTK = 0xFF; PORTL = 0xFF; //set all ports HIGH
     Kill_Ten(); //wait
@@ -117,6 +117,27 @@ void Mega_Nodesign::Send_Picture() { //Output to ports to light strings
     Kill_Ten(); Kill_Ten(); Kill_Ten();
     Kill_Ten(); Kill_Ten(); //this is more than 30uSec but seems to reduce color glitching 
   }
+
+    //!!!!!!!!!!!!!!!!!!!!UNROLLING 1 ITTERATION FOR GAME INPUT!!!!!!!!!!!!!!!!!!!!!!
+      //start bit
+    PORTA = 0xFF; PORTB = 0xFF; PORTC = 0xFF; PORTF = 0xFF; PORTK = 0xFF; PORTL = 0xFF; //set all ports HIGH
+    Kill_Ten(); //wait
+    PORTA = 0x00; PORTB = 0x00; PORTC = 0x00; PORTF = 0x00; PORTK = 0x00; PORTL = 0x00; //set all ports LOW
+
+    for (byte i = 0; i <= 25; i++) { //26 bits datagram per light
+      Kill_Ten(); //wait 
+      PORTA |= Mask_Left_A[out_pos]; PORTB |= Mask_Left_B[out_pos]; PORTC |= Mask_Left_C[out_pos]; //OR with mask
+      PORTF |= Mask_Right_F[out_pos]; PORTK |= Mask_Right_K[out_pos]; PORTL |= Mask_Right_L[out_pos]; //this sets ZEROs
+      Kill_Ten(); //wait
+      PORTA = 0xFF; PORTB = 0xFF; PORTC = 0xFF; PORTF = 0xFF; PORTK = 0xFF; PORTL = 0xFF; //set all ports HIGH, for ONEs
+      Kill_Ten(); //wait
+      PORTA = 0x00; PORTB = 0x00; PORTC = 0x00; PORTF = 0x00; PORTK = 0x00; PORTL = 0x00; //set all ports LOW
+      out_pos++; //next bit
+    }
+    //fill out 30uSec end of Frame
+    Kill_Ten(); Kill_Ten(); Kill_Ten();
+    Kill_Ten(); Kill_Ten(); //this is more than 30uSec but seems to reduce color glitching
+  //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   
   //SREG = oldSREG; // Re-enable interupts if they were enabled
 
@@ -383,7 +404,7 @@ void Mega_Nodesign::Put_String(int row, int col, char text[], int len, unsigned 
   }
 }
 
-void Mega_Nodesign::Recv_Screen() { //requires 2304 bytes recieved
+void Mega_Nodesign::Recv_Frame() { //requires 2304 bytes recieved
   byte temp_in;
   unsigned int temp_color;
 
@@ -404,6 +425,46 @@ void Mega_Nodesign::Recv_Screen() { //requires 2304 bytes recieved
   Serial.write('d'); //send "done"
 } //how to make this event driven?
 
+void Mega_Nodesign::Recv_Pixel() { //starting support for Pixelflut
+  //Datagram Format
+  //Row, Col, Color_High, Color_Low
+  //1111Row, X, X, Val1111
+  
+   int mode = 0; byte temp_command[4] = {0,0,0,0}; byte temp_in;
+  while (true) {
+    while(Serial.available() < 1) { }
+    temp_in = Serial.read();
+    switch(mode) {
+      case 0: //start of packet
+        if (temp_in >= 240) {
+          temp_command[0] = temp_in - 240; //row
+          mode = 1;
+        }
+        break;
+      case 1:
+        //asdf
+        break;
+      case 2:
+        //asdf
+        break;
+      case 3:
+        //asdf
+        break;
+      case 4: //setpixel
+        unsigned int color = (temp_command[2] << 8) + (temp_command[3] >> 4);
+        Set_Pixel(temp_command[0], temp_command[1], DEFAULT_BRIGHT, color);
+        break;
+    }
+  }
+}
+
+bool Mega_Nodesign::Get_Button_PlayerOne(byte mask) { return (Player_One & mask); }
+bool Mega_Nodesign::Get_Button_PlayerTwo(byte mask) { return (Player_Two & mask); }
+//the idea here is to call a-la if(myObject.Get_Button_Two(BUTTON_Start)){/*pause*/}
+
+byte Mega_Nodesign::Get_Raw_PlayerOne() { return (Player_One); }
+byte Mega_Nodesign::Get_Raw_PlayerTwo() { return (Player_Two); }
+
 Mega_Nodesign::Mega_Nodesign () { //the only constructor
   //set port bits to OUTPUT
   DDRA |= B11111111; DDRB |= B11111111; DDRC |= B11111111; DDRF |= B11111111; DDRK |= B11111111; DDRL |= B11111111;
@@ -411,7 +472,85 @@ Mega_Nodesign::Mega_Nodesign () { //the only constructor
 
   use_Guard = false;
   working = false;
+
+  //game controller input
+  //18 - D3
+  //19 - D2
+  //20 - D1
+  //21 - D0
+  DDRD |= B11110111;
+  PORTD = 0x00;
+  digitalWrite(12, LOW); //clock_mask
+  digitalWrite(9, HIGH); //clock enable mask
+  Player_One = 0; Player_Two = 0;
 }
+
+byte Get_Game_Input() { //74HC165
+  //pin masks
+  byte latch_mask = B00000001; //8
+  byte clk_e_mask = B00000010; //9
+  byte data_mask  = B00001000; //11
+  byte clock_mask = B00010000; //12
+
+  byte value = 0;
+
+  //clock and latch - parallel read in
+  PORTB |= clk_e_mask; //clk_e HIGH
+  PORTB &= ~latch_mask;//latch LOW
+  __asm__ volatile ( "   nop      "   "\n\t" ); //only needs to be 20ns
+  PORTB |= latch_mask; //latch HIGH
+  PORTB &= ~clk_e_mask; //clk_e LOW
+
+  //1 bit serial output
+  PORTB |= clock_mask; //clock HIGH
+  __asm__ volatile ( "   nop      "   "\n\t" );
+  value = ((PINB & data_mask) >> 3); //push to 0 or 1, mask to LSB
+  PORTB &= ~clock_mask; //clock LOW
+  
+    PORTB |= clock_mask; //clock HIGH
+  __asm__ volatile ( "   nop      "   "\n\t" );
+  value = value << 1;
+  value |= ((PINB & data_mask) >> 3);
+  PORTB &= ~clock_mask; //clock LOW
+  
+  PORTB |= clock_mask; //clock HIGH
+  __asm__ volatile ( "   nop      "   "\n\t" );
+  value = value << 1;
+  value |= ((PINB & data_mask) >> 3);
+  PORTB &= ~clock_mask; //clock LOW
+  
+  PORTB |= clock_mask; //clock HIGH
+  __asm__ volatile ( "   nop      "   "\n\t" );
+  value = value << 1;
+  value |= ((PINB & data_mask) >> 3);
+  PORTB &= ~clock_mask; //clock LOW
+
+  PORTB |= clock_mask; //clock HIGH
+  __asm__ volatile ( "   nop      "   "\n\t" );
+  value = value << 1;
+  value |= ((PINB & data_mask) >> 3);
+  PORTB &= ~clock_mask; //clock LOW
+  
+  PORTB |= clock_mask; //clock HIGH
+  __asm__ volatile ( "   nop      "   "\n\t" );
+  value = value << 1;
+  value |= ((PINB & data_mask) >> 3);
+  PORTB &= ~clock_mask; //clock LOW
+  
+  PORTB |= clock_mask; //clock HIGH
+  __asm__ volatile ( "   nop      "   "\n\t" );
+  value = value << 1;
+  value |= ((PINB & data_mask) >> 3);
+  PORTB &= ~clock_mask; //clock LOW
+  
+  PORTB |= clock_mask; //clock HIGH
+  __asm__ volatile ( "   nop      "   "\n\t" );
+  value = value << 1;
+  value |= ((PINB & data_mask) >> 3);
+  PORTB &= ~clock_mask; //clock LOW
+  
+  return (value);
+} //7uSec
 
 void Mega_Nodesign::begin () {
   //set PSU pin to LOW (ON)
