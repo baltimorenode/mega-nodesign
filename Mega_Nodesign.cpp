@@ -405,12 +405,34 @@ void Mega_Nodesign::Recv_Screen() { //requires 2304 bytes recieved
 } //how to make this event driven?
 
 void Mega_Nodesign::Recv_Pixel() { //starting support for Pixelflut
-  byte temp_in;
-  int mode = 0;
+  //Datagram Format
+  //Row, Col, Color_High, Color_Low
+    
+  int mode = 0; byte temp_command[4] = {0,0,0,0}; byte temp_in;
   while (true) {
     while(Serial.available() < 1) { }
     temp_in = Serial.read();
-    //parse here
+    switch(mode) {
+      case 0: //start of packet
+        if (temp_in >= 240) {
+          temp_command[0] = temp_in - 240; //row
+          mode = 1;
+        }
+        break;
+      case 1:
+        //asdf
+        break;
+      case 2:
+        //asdf
+        break;
+      case 3:
+        //asdf
+        break;
+      case 4: //setpixel
+        unsigned int color = (temp_command[2] << 8) + (temp_command[3] >> 4);
+        Set_Pixel(temp_command[0], temp_command[1], DEFAULT_BRIGHT, color);
+        break;
+    }
   }
 }
 
