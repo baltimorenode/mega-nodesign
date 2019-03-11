@@ -39,7 +39,7 @@ void Mega_Nodesign::Prepare_Masks () { //called by setup to fill address in virt
   }
 }
 
-void Mega_Nodesign::Enummerate() { //set light IDs from 1 to 24
+void Mega_Nodesign::Enumerate() { //set light IDs from 1 to 24
   //this code looks very similar to Send_Picture and Prepar_Masks, but is only for initializing the light strings
   //temporarily using Left_Mask_A to keep memory usage static, it will be correctly configured by Prepare_Masks()  
   int pos = 0;
@@ -115,80 +115,92 @@ void Mega_Nodesign::Send_Picture() { //Output to ports to light strings
     }
     //fill out 30uSec end of Frame
     Kill_Ten(); Kill_Ten(); Kill_Ten();
-    Kill_Ten(); Kill_Ten(); //this is more than 30uSec but seems to reduce color glitching 
+    Kill_Ten(); Kill_Ten(); Kill_Ten(); //this is more than 30uSec but seems to reduce color glitching 
   }
   
   //SREG = oldSREG; // Re-enable interupts if they were enabled
 
   if (use_Guard) { Serial.write('d'); }
-} //~16200uSec or 16ms = ~50fps with just under 4ms per frame for other logic
+} //~16300uSec or 16ms which is less than 20ms so ~50fps with just under 4ms per frame for other logic
 
-void Mega_Nodesign::Set_Pixel(int row, int col, byte high_bright, unsigned int color) { //use this to set values in "frame_buffer"
+void Mega_Nodesign::Set_Pixel (int row, int col, byte high_bright, unsigned int color) { //use this to set values in "frame_buffer"
   //please note this needs work, use high_bight, high_bright should come in as 0xX0, validate <=CC
 
-  byte *mask_ptr; //set pointer to desired array to itterate through
-  byte row_mask; //bit mask to change only desired row
+  byte *mask_ptr; //used inside the for loop
+  int line = row - 1; //push this so row 1 is accutally the zero bit of the Mask
+    
+  //set pointer to desired array to itterate through
   if (col >= 25) { //right side
-    if (row >= 17) { mask_ptr = Mask_Right_L; row_mask = 0x01 << (row - 17); } //worst case is 7 shifts
-    else if (row >= 9) { mask_ptr = Mask_Right_K; row_mask = 0x01 << (row - 9); }
-    else { mask_ptr = Mask_Right_F; row_mask = 0x01 << (row - 1); }
-    col -= 24; //allow user to specify 48 columns, but convert to only 24 lights in substring
+    if (row >= 17) { mask_ptr = Mask_Right_L; line -= 17; }
+    else if (row >= 9) { mask_ptr = Mask_Right_K; line -= 9; }
+    else { mask_ptr = Mask_Right_F; }
+    row -= 24;
   }
   else { //left side
-    if (row >= 17) { mask_ptr = Mask_Left_C; row_mask = 0x01 << (row - 17); }
-    else if (row >= 9) { mask_ptr = Mask_Left_B; row_mask = 0x01 << (row - 9); }
-    else { mask_ptr = Mask_Left_A; row_mask = 0x01 << (row - 1); }
+    if (row >= 17) { mask_ptr = Mask_Left_C; line -= 17; }
+    else if (row >= 9) { mask_ptr = Mask_Left_B; line -= 9; }
+    else { mask_ptr = Mask_Left_A; }
   }
-  
+
+  mask_ptr += (24 - col) * 26 + 14;
+
   //the highest block of the mask is the leftmost light, this goes to correct column position then skips to the LSB of the color value
-  mask_ptr = mask_ptr + ((24 - col) * 26 - 12); //so go backward
-  
-  //remember that puting a 1 in the port mask will write a 0 to the light
+
+  byte over = 0x01 << line; //set overwrite mask to desired bit
   unsigned int color_bit_mask = 0x0800U;
-  //unrolling improves performance
-  if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~row_mask; } //AND with a 0 in the desired bit, will set selected bit to 0
-  else { *mask_ptr = *mask_ptr | (byte)row_mask; } //OR with a 1 in the desired bit, will set selected bit to 1
+  
+  //remember that puting a 1 in the mask will write a 0 to the light
+  //unrolled loop to save 2uSec
+  if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~over; } //AND with a 0 in the desired bit, will set selected bit to 0
+  else { *mask_ptr = *mask_ptr | (byte)over; } //OR with a 1 in the desired bit, will set selected bit to 1
+  mask_ptr = mask_ptr + 1;
   color_bit_mask = color_bit_mask >> 1;
-  mask_ptr = mask_ptr - 1;
-  if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~row_mask; } //AND with a 0 in the desired bit, will set selected bit to 0
-  else { *mask_ptr = *mask_ptr | (byte)row_mask; } //OR with a 1 in the desired bit, will set selected bit to 1
+
+    if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~over; } //AND with a 0 in the desired bit, will set selected bit to 0
+  else { *mask_ptr = *mask_ptr | (byte)over; } //OR with a 1 in the desired bit, will set selected bit to 1
+  mask_ptr = mask_ptr + 1;
   color_bit_mask = color_bit_mask >> 1;
-  mask_ptr = mask_ptr - 1;
-  if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~row_mask; } //AND with a 0 in the desired bit, will set selected bit to 0
-  else { *mask_ptr = *mask_ptr | (byte)row_mask; } //OR with a 1 in the desired bit, will set selected bit to 1
+    if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~over; } //AND with a 0 in the desired bit, will set selected bit to 0
+  else { *mask_ptr = *mask_ptr | (byte)over; } //OR with a 1 in the desired bit, will set selected bit to 1
+  mask_ptr = mask_ptr + 1;
   color_bit_mask = color_bit_mask >> 1;
-  mask_ptr = mask_ptr - 1;
-  if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~row_mask; } //AND with a 0 in the desired bit, will set selected bit to 0
-  else { *mask_ptr = *mask_ptr | (byte)row_mask; } //OR with a 1 in the desired bit, will set selected bit to 1
+    if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~over; } //AND with a 0 in the desired bit, will set selected bit to 0
+  else { *mask_ptr = *mask_ptr | (byte)over; } //OR with a 1 in the desired bit, will set selected bit to 1
+  mask_ptr = mask_ptr + 1;
   color_bit_mask = color_bit_mask >> 1;
-  mask_ptr = mask_ptr - 1;
-  if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~row_mask; } //AND with a 0 in the desired bit, will set selected bit to 0
-  else { *mask_ptr = *mask_ptr | (byte)row_mask; } //OR with a 1 in the desired bit, will set selected bit to 1
+    if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~over; } //AND with a 0 in the desired bit, will set selected bit to 0
+  else { *mask_ptr = *mask_ptr | (byte)over; } //OR with a 1 in the desired bit, will set selected bit to 1
+  mask_ptr = mask_ptr + 1;
   color_bit_mask = color_bit_mask >> 1;
-  mask_ptr = mask_ptr - 1;
-  if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~row_mask; } //AND with a 0 in the desired bit, will set selected bit to 0
-  else { *mask_ptr = *mask_ptr | (byte)row_mask; } //OR with a 1 in the desired bit, will set selected bit to 1
+    if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~over; } //AND with a 0 in the desired bit, will set selected bit to 0
+  else { *mask_ptr = *mask_ptr | (byte)over; } //OR with a 1 in the desired bit, will set selected bit to 1
+  mask_ptr = mask_ptr + 1;
   color_bit_mask = color_bit_mask >> 1;
-  mask_ptr = mask_ptr - 1;
-  if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~row_mask; } //AND with a 0 in the desired bit, will set selected bit to 0
-  else { *mask_ptr = *mask_ptr | (byte)row_mask; } //OR with a 1 in the desired bit, will set selected bit to 1
+    if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~over; } //AND with a 0 in the desired bit, will set selected bit to 0
+  else { *mask_ptr = *mask_ptr | (byte)over; } //OR with a 1 in the desired bit, will set selected bit to 1
+  mask_ptr = mask_ptr + 1;
   color_bit_mask = color_bit_mask >> 1;
-  mask_ptr = mask_ptr - 1;
-  if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~row_mask; } //AND with a 0 in the desired bit, will set selected bit to 0
-  else { *mask_ptr = *mask_ptr | (byte)row_mask; } //OR with a 1 in the desired bit, will set selected bit to 1
+    if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~over; } //AND with a 0 in the desired bit, will set selected bit to 0
+  else { *mask_ptr = *mask_ptr | (byte)over; } //OR with a 1 in the desired bit, will set selected bit to 1
+  mask_ptr = mask_ptr + 1;
   color_bit_mask = color_bit_mask >> 1;
-  mask_ptr = mask_ptr - 1;
-  if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~row_mask; } //AND with a 0 in the desired bit, will set selected bit to 0
-  else { *mask_ptr = *mask_ptr | (byte)row_mask; } //OR with a 1 in the desired bit, will set selected bit to 1
+    if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~over; } //AND with a 0 in the desired bit, will set selected bit to 0
+  else { *mask_ptr = *mask_ptr | (byte)over; } //OR with a 1 in the desired bit, will set selected bit to 1
+  mask_ptr = mask_ptr + 1;
   color_bit_mask = color_bit_mask >> 1;
-  mask_ptr = mask_ptr - 1;
-  if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~row_mask; } //AND with a 0 in the desired bit, will set selected bit to 0
-  else { *mask_ptr = *mask_ptr | (byte)row_mask; } //OR with a 1 in the desired bit, will set selected bit to 1
+    if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~over; } //AND with a 0 in the desired bit, will set selected bit to 0
+  else { *mask_ptr = *mask_ptr | (byte)over; } //OR with a 1 in the desired bit, will set selected bit to 1
+  mask_ptr = mask_ptr + 1;
   color_bit_mask = color_bit_mask >> 1;
-  mask_ptr = mask_ptr - 1;
-  if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~row_mask; } //AND with a 0 in the desired bit, will set selected bit to 0
-  else { *mask_ptr = *mask_ptr | (byte)row_mask; } //OR with a 1 in the desired bit, will set selected bit to 1
-} //~13uSec
+    if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~over; } //AND with a 0 in the desired bit, will set selected bit to 0
+  else { *mask_ptr = *mask_ptr | (byte)over; } //OR with a 1 in the desired bit, will set selected bit to 1
+  mask_ptr = mask_ptr + 1;
+  color_bit_mask = color_bit_mask >> 1;
+    if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~over; } //AND with a 0 in the desired bit, will set selected bit to 0
+  else { *mask_ptr = *mask_ptr | (byte)over; } //OR with a 1 in the desired bit, will set selected bit to 1
+  mask_ptr = mask_ptr + 1;
+  color_bit_mask = color_bit_mask >> 1;
+} //~12uSec
 
 void Mega_Nodesign::Kill_Ten() { //uses up ~10uSec with assembly NOPs
   __asm__ volatile (
@@ -221,28 +233,16 @@ void Mega_Nodesign::Kill_Ten() { //uses up ~10uSec with assembly NOPs
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
   ); //5
-    __asm__ volatile (
+  __asm__ volatile (
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
     "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
   ); //6
-      __asm__ volatile (
-    "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
-    "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
-    "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
-    "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
-  ); //7
-      __asm__ volatile (
-    "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
-    "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
-    "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
-    "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t" "   nop      "   "\n\t"
-  ); //8
   //last, -4 call/ret
-} //test exactlly how much time we have to kill and still get stable color
+} //this is just over 6uSec, which is less than required by spec
 
-void Mega_Nodesign::Clear_Screen() { //sets all Masks to BLACK
+void Mega_Nodesign::Clear_Screen() { //sets all pixel Masks to BLACK
   int pos = 14; //start of color for first pixel
 
   for (int j = 0; j <= 24; j++) { //24 lights per string
@@ -271,6 +271,13 @@ void Mega_Nodesign::Clear_Screen() { //sets all Masks to BLACK
     Mask_Left_A[pos] = 0xFF; Mask_Left_B[pos] = 0xFF; Mask_Left_C[pos] = 0xFF; Mask_Right_F[pos] = 0xFF; Mask_Right_K[pos] = 0xFF; Mask_Right_L[pos] = 0xFF;
     pos += 15; //goto color of next pixel
   }
+/*
+  for (int i = 1; i <= 24; i++) {
+    for (int j = 1; j <= 48; j++) {
+      Set_Pixel(i, j, DEFAULT_BRIGHT, BLACK);
+    }
+  }
+*/
 } //445uSec
 
 void Mega_Nodesign::Load_Logo() { //puts logo from EEPROM int Masks via Set_Pixel
@@ -404,55 +411,26 @@ void Mega_Nodesign::Recv_Screen() { //requires 2304 bytes recieved
   Serial.write('d'); //send "done"
 } //how to make this event driven?
 
-void Mega_Nodesign::Recv_Pixel() { //starting support for Pixelflut
-  //Datagram Format
-  //Row, Col, Color_High, Color_Low
-    
-  int mode = 0; byte temp_command[4] = {0,0,0,0}; byte temp_in;
-  while (true) {
-    while(Serial.available() < 1) { }
-    temp_in = Serial.read();
-    switch(mode) {
-      case 0: //start of packet
-        if (temp_in >= 240) {
-          temp_command[0] = temp_in - 240; //row
-          mode = 1;
-        }
-        break;
-      case 1:
-        //asdf
-        break;
-      case 2:
-        //asdf
-        break;
-      case 3:
-        //asdf
-        break;
-      case 4: //setpixel
-        unsigned int color = (temp_command[2] << 8) + (temp_command[3] >> 4);
-        Set_Pixel(temp_command[0], temp_command[1], DEFAULT_BRIGHT, color);
-        break;
-    }
-  }
-}
-
 Mega_Nodesign::Mega_Nodesign () { //the only constructor
   //set port bits to OUTPUT
   DDRA |= B11111111; DDRB |= B11111111; DDRC |= B11111111; DDRF |= B11111111; DDRK |= B11111111; DDRL |= B11111111;
   PORTA = 0x00; PORTB = 0x00; PORTC = 0x00; PORTF = 0x00; PORTK = 0x00; PORTL = 0x00; //all low to start
+
+  //setup power supply relays
+  DDRJ |= B00000011; //PORTJ 0, 1 = pin 15 and 14
+  PORTJ = 0x03; //14 and 15 HIGH, none of the other pins of PORTJ are exposed but just to be nice only set used pins
 
   use_Guard = false;
   working = false;
 }
 
 void Mega_Nodesign::begin () {
-  //set PSU pin to LOW (ON)
-  digitalWrite(14, LOW);
-  digitalWrite(15, LOW);
+  //set PSU pin to LOW
+  PORTJ = 0x000; //14 and 15 LOW
 
   working = true;
   
-  Enummerate();
+  Enumerate();
   Prepare_Masks();
   Load_Logo();
   Send_Picture();
@@ -461,9 +439,42 @@ void Mega_Nodesign::begin () {
 }
 
 void Mega_Nodesign::stop () {
-  //set PSU pin to HIGH (OFF)
-  digitalWrite(14, HIGH);
-  digitalWrite(15, HIGH);
+  //set PSU pin to Low
+  PORTJ = 0x03; //14 and 15 HIGH
 
   working = false;
 }
+
+void Mega_Nodesign::Print_Mask(int mask, int col) { //do ont keep this in production
+  byte *mask_ptr;
+  switch (mask) { //which mask
+    case 1:
+      mask_ptr = Mask_Left_A;
+      break;
+    case 2:
+      mask_ptr = Mask_Left_B;
+      break;
+    case 3:
+      mask_ptr = Mask_Left_C;
+      break;
+    case 4:
+      mask_ptr = Mask_Right_F;
+      break;
+    case 5:
+      mask_ptr = Mask_Right_K;
+      break;
+    case 6:
+      mask_ptr = Mask_Right_L;
+      break;
+  }
+  
+  mask_ptr += (24 - col) * 26; //goto bit position
+
+  for (int i=0; i<=26; i++) { //loop through bits
+    Serial.print(*mask_ptr);
+    Serial.print(" ");
+    mask_ptr = mask_ptr + 1;
+  }
+  Serial.println("");
+}
+
