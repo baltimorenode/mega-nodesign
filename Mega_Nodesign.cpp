@@ -198,8 +198,6 @@ void Mega_Nodesign::Set_Pixel (int row, int col, byte high_bright, unsigned int 
   color_bit_mask = color_bit_mask >> 1;
     if (color & color_bit_mask) { *mask_ptr = *mask_ptr & (byte)~over; } //AND with a 0 in the desired bit, will set selected bit to 0
   else { *mask_ptr = *mask_ptr | (byte)over; } //OR with a 1 in the desired bit, will set selected bit to 1
-  mask_ptr = mask_ptr + 1;
-  color_bit_mask = color_bit_mask >> 1;
 } //~12uSec
 
 void Mega_Nodesign::Kill_Ten() { //uses up ~10uSec with assembly NOPs
