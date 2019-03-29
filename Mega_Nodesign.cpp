@@ -418,6 +418,12 @@ Mega_Nodesign::Mega_Nodesign () { //the only constructor
   DDRJ |= B00000011; //PORTJ 0, 1 = pin 15 and 14
   PORTJ = 0x03; //14 and 15 HIGH, none of the other pins of PORTJ are exposed but just to be nice only set used pins
 
+  DDRH |= B00000011; //PORTH 0, 1 = pin 17 and 16
+  PORTH = 0x03; 
+
+  DDRD |= B00001100; //PORTD 3, 2, 1, 0 = pin 18, 19, 20, and 21
+  PORTD = 0x0B; //only using pins 18 and 19
+
   use_Guard = false;
   working = false;
 }
@@ -425,6 +431,8 @@ Mega_Nodesign::Mega_Nodesign () { //the only constructor
 void Mega_Nodesign::begin () {
   //set PSU pin to LOW
   PORTJ = 0x000; //14 and 15 LOW
+  PORTH = 0x00;
+  PORTD = 0x00;
 
   working = true;
   
@@ -439,6 +447,8 @@ void Mega_Nodesign::begin () {
 void Mega_Nodesign::stop () {
   //set PSU pin to Low
   PORTJ = 0x03; //14 and 15 HIGH
+  PORTH = 0x03;
+  PORTD = 0x0B;
 
   working = false;
 }
